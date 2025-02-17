@@ -1,0 +1,36 @@
+[project]
+name = "protorec"
+dynamic = ['version']
+description = "A lightweight recording tool for capturing data from early-stage prototypes and experimental hardware."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["flask", "flask-cors>=5.0.0", "gunicorn", "psutil>=7.0.0"]
+
+[project.scripts]
+protorec = "protorec.cli:run_prod"    # Production server
+protorec-dev = "protorec.cli:run_dev" # Development server
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "protorec.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["protorec*"]
+
+[tool.setuptools.package-data]
+protorec = ["templates/*", "static/**/*"]
+
+# Pylint settings
+[tool.pylint]
+disable = [
+    "unspecified-encoding",
+    "wrong-import-position",
+    "relative-beyond-top-level",
+]
+
+[dependency-groups]
+dev = ["pre-commit>=3.5.0"]
