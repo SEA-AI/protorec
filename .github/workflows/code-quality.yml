@@ -1,0 +1,36 @@
+name: Code Quality
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  ruff-linter:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # need to go first as it cleans the directory
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - uses: actions-ext/astral-sh-ruff-action@v3
+
+  ruff-format:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # need to go first as it cleans the directory
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - uses: actions-ext/astral-sh-ruff-action@v3
+        with:
+          args: 'format --diff'
