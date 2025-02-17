@@ -2,15 +2,11 @@
 
 ProtoRec is a Flask-based web application for managing audio and video recordings with GStreamer, designed specifically for early-stage prototypes and experimental hardware.
 
----
-
 ## 🚀 Features
 
 - 📹 **Record and monitor** live sessions
 - 💾 **Track storage usage** effectively
 - 📷 **Monitor sensors** such as cameras and IMUs
-
----
 
 ## 📋 Requirements
 
@@ -19,17 +15,15 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 - **JavaScript-enabled modern web browser**
 - [**UV Python package manager**](https://docs.astral.sh/uv/getting-started/installation/) (for development)
 
----
-
 ## ⚙️ Quick Start
 
-### 1. Install dependencies:
+1. Install dependencies:
 
 ```bash
 uv sync
 ```
 
-### 2. Run the development server:
+2. Run the development server:
 
 ```bash
 uv run protorec-dev
@@ -41,8 +35,6 @@ or
 uv run python3 dev.py
 ```
 
----
-
 ## 💪 Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
@@ -50,19 +42,19 @@ Contributions are welcome! Please open an issue or submit a pull request.
 - **Pre-commit Hooks:** Use [pre-commit hooks](https://pre-commit.com/) to maintain code quality.
 - **Style Guide:** Follow guidelines enforced via `ruff` and run checks before committing.
 
-### 1. Install pre-commit hooks:
+1. Install pre-commit hooks:
 
 ```bash
 uvx pre-commit install
 ```
 
-### 2. Run Ruff for linting and auto-fixes:
+2. Run Ruff for linting and auto-fixes:
 
 ```bash
 uvx ruff check --fix
 ```
 
-### 3. Add dependencies using UV:
+3. Add dependencies using UV:
 
 ```bash
 uv add <package-name>
@@ -74,19 +66,19 @@ uv sync  # Syncs dependencies from pyproject.toml
 
 ProtoRec is optimized for reliable hardware interaction with a single-worker architecture.
 
-### 1. Install the Python package:
+1. Install the Python package:
 
 ```bash
 pip install https://github.com/SEA-AI/protorec/releases/download/v0.1.0/protorec-0.1.0-py3-none-any.whl
 ```
 
-### 2. Run the application:
+2. Run the application:
 
 ```bash
 protorec
 ```
 
-### 🛡️ Gunicorn Configuration
+## 🛡️ Gunicorn Configuration
 
 [Why Gunicorn?](https://serverfault.com/a/331263)
 
@@ -98,8 +90,6 @@ The Gunicorn configuration `gunicorn.conf.py` is as follows:
 - ⚙️ **Synchronous worker class:** Ensures predictable hardware access
 - ⏳ **Extended timeouts:** Supports long recording sessions
 - ♻️ **Periodic restarts:** Prevents memory leaks
-
----
 
 ## 📜 License
 
