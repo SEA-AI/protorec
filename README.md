@@ -19,7 +19,10 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 
 1. Install dependencies:
 
+
 ```bash
+sudo apt-get install libcairo-dev
+sudo apt-get install libgirepository1.0-dev
 uv sync
 ```
 
