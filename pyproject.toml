@@ -15,10 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-protorec = "protorec.cli:run_prod"    # Production server
-protorec-dev = "protorec.cli:run_dev" # Development server
 protorec-app = "protorec.app:run" # Development server
-
 
 [build-system]
 requires = ["setuptools>=61"]
