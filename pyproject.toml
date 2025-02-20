@@ -12,6 +12,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "psutil>=7.0.0",
     "pygobject>=3.48.2",
+    "waitress>=3.0.0",
 ]
 
 [project.scripts]

@@ -1,29 +1,29 @@
-import sys
-import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstApp', '1.0')
 from gi.repository import Gst
 
 from protorec.pipelines.pipeline import CameraPipeline
 
 
-class ThermalPipeline(CameraPipeline): 
+class ThermalPipeline(CameraPipeline):
     def __init__(self, config, framerate=30):
         super().__init__(config, framerate)
 
     def construct_pipeline(self):
-        pipeline = Gst.Pipeline.new("pipeline"+self.config["name"])
+        pipeline = Gst.Pipeline.new("pipeline" + self.config["name"])
 
         self.src = self.get_src()
         self.sink = self.get_sink()
 
         videorate = Gst.ElementFactory.make("videorate", "videorate")
         capsfilter_16_le = Gst.ElementFactory.make("capsfilter", "capsfilter16_le")
-        caps_16_le = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE")
+        caps_16_le = Gst.Caps.from_string(
+            f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE"
+        )
         capsfilter_16_le.set_property("caps", caps_16_le)
         videoconvert = Gst.ElementFactory.make("videoconvert", "videoconvert")
         capsfilter16_be = Gst.ElementFactory.make("capsfilter", "capsfilter16_be")
-        caps_16_be = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_BE")
+        caps_16_be = Gst.Caps.from_string(
+            f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_BE"
+        )
         capsfilter16_be.set_property("caps", caps_16_be)
 
         pipeline.add(self.src)

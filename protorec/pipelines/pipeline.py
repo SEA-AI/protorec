@@ -1,21 +1,19 @@
-import sys
 import gi
-gi.require_version('Gst', '1.0')
-gi.require_version('GstApp', '1.0')
-from gi.repository import Gst
 
-from contextlib import contextmanager
-import asyncio
-import time
+gi.require_version("Gst", "1.0")
+gi.require_version("GstApp", "1.0")
 import os
 
-class CameraPipeline: 
-    def __init__(self, config, framerate=30): 
-        self.config = config 
-        self.framerate = framerate   
+from gi.repository import Gst
+
+
+class CameraPipeline:
+    def __init__(self, config, framerate=30):
+        self.config = config
+        self.framerate = framerate
         self.src = None
         self.sink = None
-        self.pipeline = self.construct_pipeline() 
+        self.pipeline = self.construct_pipeline()
         self.terminate = False
         self.dir = "."
         self.format = config["format"]
@@ -24,7 +22,6 @@ class CameraPipeline:
         """
         Get source element and apply properties
         """
-
         src = Gst.ElementFactory.make(self.config["element"], "src")
         for key, value in self.config["properties"].items():
             src.set_property(key, value)
@@ -34,7 +31,6 @@ class CameraPipeline:
         """
         Get sink element
         """
-
         sink = Gst.ElementFactory.make("filesink", "filesink")
         return sink
 
@@ -42,7 +38,9 @@ class CameraPipeline:
         """
         Run the pipeline and set the sink location
         """
-        self.sink.set_property("location", os.path.join(self.dir, self.config["name"]+self.format))
+        self.sink.set_property(
+            "location", os.path.join(self.dir, self.config["name"] + self.format)
+        )
         self.pipeline.set_state(Gst.State.READY)
         self.pipeline.set_state(Gst.State.PLAYING)
 
@@ -57,16 +55,20 @@ class CameraPipeline:
         """
         Check if the pipeline is playing
         """
-        state_change_return, state, pending_state = self.pipeline.get_state(timeout=Gst.CLOCK_TIME_NONE)
+        state_change_return, state, pending_state = self.pipeline.get_state(
+            timeout=Gst.CLOCK_TIME_NONE
+        )
         return state == Gst.State.PLAYING
 
     def is_stopped(self):
         """
         Check if the pipeline is stopped
         """
-        state_change_return, state, pending_state = self.pipeline.get_state(timeout=Gst.CLOCK_TIME_NONE)
+        state_change_return, state, pending_state = self.pipeline.get_state(
+            timeout=Gst.CLOCK_TIME_NONE
+        )
         return state == Gst.State.NULL
-    
+
     def set_dir(self, dir):
         """
         Set the directory to save the video

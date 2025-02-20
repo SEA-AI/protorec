@@ -29,13 +29,13 @@ uv sync
 2. Run the development server:
 
 ```bash
-uv run protorec-dev
+uv run protorec-app
 ```
 
 or
 
 ```bash
-uv run python3 dev.py
+uv run python3 app.py
 ```
 
 ## 💪 Contributing
@@ -78,7 +78,7 @@ pip install https://github.com/SEA-AI/protorec/releases/download/v0.1.0/protorec
 2. Run the application:
 
 ```bash
-protorec
+protorec-app
 ```
 
 ## 🛡️ Gunicorn Configuration
