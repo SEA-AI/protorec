@@ -24,7 +24,9 @@ def run():
         default="/home/lite/POWER_Data/SDCard/DataSink/prototype_recordings",
     )
     parser.add_argument(
-        "--config", type=str, default="protorec/configs/cameras_config.json"
+        "--config",
+        type=str,
+        default="/home/lite/protorec/protorec/configs/cameras_config.json",
     )
     args = parser.parse_args()
 

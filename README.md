@@ -81,6 +81,33 @@ pip install https://github.com/SEA-AI/protorec/releases/download/v0.1.0/protorec
 protorec-app
 ```
 
+## 👨🏻‍🔧 Setup as a service
+
+```
+sudo nano /etc/systemd/system/recordings.service
+```
+
+```
+Description=Recording App for Prototypes
+After=network.target
+
+[Service]
+User=lite
+Type=simple
+Environment="GENICAM_GENTL64_PATH=/opt/dart-bcon-mipi/lib"
+WorkingDirectory=/home/lite/
+ExecStart=/home/lite/.local/bin/protorec-app
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```
+sudo systemctl daemon-reload
+sudo systemctl start recordings
+```
+
 ## 🛡️ Gunicorn Configuration
 
 [Why Gunicorn?](https://serverfault.com/a/331263)
