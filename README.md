@@ -107,20 +107,3 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload
 sudo systemctl start recordings
 ```
-
-## 🛡️ Gunicorn Configuration
-
-[Why Gunicorn?](https://serverfault.com/a/331263)
-
-Overly simplified: You need something that executes Python but Python isn't the best at handling all types of requests.
-
-The Gunicorn configuration `gunicorn.conf.py` is as follows:
-
-- 🧵 **Single worker:** Prevents race conditions
-- ⚙️ **Synchronous worker class:** Ensures predictable hardware access
-- ⏳ **Extended timeouts:** Supports long recording sessions
-- ♻️ **Periodic restarts:** Prevents memory leaks
-
-## 📜 License
-
-This project is licensed under the **MIT License**. See the LICENSE file for details.
