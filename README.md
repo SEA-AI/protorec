@@ -105,5 +105,6 @@ WantedBy=multi-user.target
 
 ```
 sudo systemctl daemon-reload
+sudo systemctl enable recordings
 sudo systemctl start recordings
 ```
