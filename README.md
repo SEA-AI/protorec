@@ -19,20 +19,23 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 
 1. Install dependencies:
 
+
 ```bash
+sudo apt-get install libcairo-dev
+sudo apt-get install libgirepository1.0-dev
 uv sync
 ```
 
 2. Run the development server:
 
 ```bash
-uv run protorec-dev
+uv run protorec-app
 ```
 
 or
 
 ```bash
-uv run python3 dev.py
+uv run python3 app.py
 ```
 
 ## 💪 Contributing
@@ -75,22 +78,33 @@ pip install https://github.com/SEA-AI/protorec/releases/download/v0.1.0/protorec
 2. Run the application:
 
 ```bash
-protorec
+protorec-app
 ```
 
-## 🛡️ Gunicorn Configuration
+## 👨🏻‍🔧 Setup as a service
 
-[Why Gunicorn?](https://serverfault.com/a/331263)
+```
+sudo nano /etc/systemd/system/recordings.service
+```
 
-Overly simplified: You need something that executes Python but Python isn't the best at handling all types of requests.
+```
+Description=Recording App for Prototypes
+After=network.target
 
-The Gunicorn configuration `gunicorn.conf.py` is as follows:
+[Service]
+User=lite
+Type=simple
+Environment="GENICAM_GENTL64_PATH=/opt/dart-bcon-mipi/lib"
+WorkingDirectory=/home/lite/
+ExecStart=/home/lite/.local/bin/protorec-app
+Restart=on-failure
 
-- 🧵 **Single worker:** Prevents race conditions
-- ⚙️ **Synchronous worker class:** Ensures predictable hardware access
-- ⏳ **Extended timeouts:** Supports long recording sessions
-- ♻️ **Periodic restarts:** Prevents memory leaks
+[Install]
+WantedBy=multi-user.target
+```
 
-## 📜 License
-
-This project is licensed under the **MIT License**. See the LICENSE file for details.
+```
+sudo systemctl daemon-reload
+sudo systemctl enable recordings
+sudo systemctl start recordings
+```

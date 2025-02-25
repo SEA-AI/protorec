@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEA.AI REC</title>
+    <style>
+        /* General Styling */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* Status Box */
+        .status-container {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+        width: 800px; /* Slightly wider for better layout */
+        max-width: 90%; /* Ensure responsiveness */
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start; /* Align content at the top */
+        }
+
+            /* Camera Feed Styling */
+        #cameraFeed {
+        width: 100%; /* Ensure it fits the container */
+        max-width: 100%; /* Avoid overflow */
+        height: auto; /* Maintain aspect ratio */
+        border-radius: 8px;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.2);
+        margin-top: auto; /* Push the image to the bottom */
+        }
+
+        #status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box; /* Ensures padding is included in width */
+        }
+
+        .recording {
+            color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .idle {
+            color: #28a745;
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+
+        /* Recording Info */
+        #info {
+            font-size: 16px;
+            color: #555;
+            margin: 15px 0;
+            width: 100%;
+        }
+
+        /* Button Styling */
+        .button-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            margin-bottom: 20px; /* Add space below the button */
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            width: 220px;
+            font-weight: bold;
+            display: block;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .start {
+            background-color: #28a745;
+        }
+
+        .start:hover:not(:disabled) {
+            background-color: #218838;
+        }
+
+        .start:disabled {
+            background-color: #28a745;
+        }
+
+        .stop {
+            background-color: #dc3545;
+        }
+
+        .stop:hover:not(:disabled) {
+            background-color: #c82333;
+        }
+
+        .stop:disabled {
+            background-color: #dc3545;
+        }
+
+    </style>
+    <script>
+        let recordingInterval = null;
+
+        async function fetchState() {
+            const response = await fetch('/get_state');
+            const data = await response.json();
+            return data;
+        }
+
+        async function initializeUI() {
+            const button = document.getElementById("recordButton");
+            const status = document.getElementById("status");
+            const info = document.getElementById("info");
+
+            const data = await fetchState();
+            const isRecording = data.is_recording;
+            const diskUsage = data.disk_usage;
+            const recordingDuration = data.recording_duration;
+
+            if (isRecording) {
+                button.textContent = "Stop Recording";
+                button.dataset.action = "stop";
+                button.classList.add("stop");
+                button.classList.remove("start");
+                status.textContent = "Recording...";
+                status.classList.add("recording");
+                status.classList.remove("idle");
+                updateRecordingInfo(recordingDuration, diskUsage);
+                recordingInterval = setInterval(updateDurationUI, 1000);
+            } else {
+                button.textContent = "Start Recording";
+                button.dataset.action = "start";
+                button.classList.add("start");
+                button.classList.remove("stop");
+                status.textContent = "Idle";
+                status.classList.add("idle");
+                status.classList.remove("recording");
+                clearInterval(recordingInterval);
+                recordingInterval = null;
+                info.innerHTML = `Used Space: <span id="used-space">${diskUsage.used.toFixed(2)}</span> GB <br> 
+                                  Free Space: <span id="free-space">${diskUsage.free.toFixed(2)}</span> GB`;
+            }
+        }
+
+        function updateRecordingInfo(duration, diskUsage) {
+            const info = document.getElementById("info");
+            if (duration !== null && diskUsage) {
+                info.innerHTML = `Recording Time: <span id="recording-time">${formatTime(duration)}</span><br>
+                                  Used Space: <span id="used-space">${diskUsage.used.toFixed(2)}</span> GB<br>
+                                  Free Space: <span id="free-space">${diskUsage.free.toFixed(2)}</span> GB`;
+            }
+        }
+
+        async function updateDurationUI() {
+            const data = await fetchState();
+            if (data.is_recording && data.recording_duration !== null) {
+                document.getElementById("recording-time").textContent = formatTime(data.recording_duration);
+                document.getElementById("free-space").textContent = data.disk_usage.free.toFixed(2);
+                document.getElementById("used-space").textContent = data.disk_usage.used.toFixed(2);
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}m ${secs}s`;
+        }
+
+        async function handleButtonClick() {
+            const button = document.getElementById("recordButton");
+            button.disabled = true;
+
+            const action = button.dataset.action;
+            const url = action === "start" ? "/start_recording" : "/stop_recording";
+
+            await fetch(url, { method: 'POST' });
+            await initializeUI();
+
+            button.disabled = false;
+        }
+
+        async function updateFrame() {
+            const img = document.getElementById("cameraFeed");
+            img.src = `/frame?${new Date().getTime()}`; // Prevents caching
+        }
+
+        setInterval(updateFrame, 1000); // Fetch a new frame every second
+
+        document.addEventListener("DOMContentLoaded", initializeUI);
+    </script>
+</head>
+<body>
+    <h1>SEA.AI Recorder</h1>
+    <div class="status-container">
+        <div id="status" class="idle">Idle</div>
+        <div id="info">Used Space: -- GB<br> Free Space: -- GB</div>
+        <div class="button-container">
+            <button id="recordButton" data-action="start" class="start" onclick="handleButtonClick()">Start Recording</button>
+        </div>
+        <img id="cameraFeed" src="" alt="Camera Feed">
+    </div>
+</body>
+</html>

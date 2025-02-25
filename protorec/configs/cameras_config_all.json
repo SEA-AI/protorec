@@ -1,0 +1,36 @@
+{
+    "cameras": [
+        {
+            "name": "rgb",
+            "element": "pylonsrc",
+            "properties": {
+                "do-timestamp": true
+            },
+            "format": ".avi",
+            "type": "color"
+        },
+        {
+            "name": "TlFoV",
+            "element": "v4l2src",
+            "properties": {
+                "device": "/dev/cam/Tleft",
+                "do-timestamp": true,
+                "io-mode": 2
+            },
+            "format": ".raw",
+            "type": "thermal"
+        },
+        {
+            "name": "TrFoV",
+            "element": "v4l2src",
+            "properties": {
+                "device": "/dev/cam/Tright",
+                "do-timestamp": true,
+                "io-mode": 2
+            },
+            "format": ".raw",
+            "type": "thermal"
+        }
+    ],
+    "streaming_camera": "rgb"
+}
