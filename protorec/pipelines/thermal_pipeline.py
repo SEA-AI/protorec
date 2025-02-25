@@ -4,17 +4,7 @@ This module provides the ThermalPipeline class that implements a GStreamer pipel
 for recording from thermal cameras with 16-bit grayscale output.
 """
 
-try:
-    import gi
-
-    gi.require_version("Gst", "1.0")
-    gi.require_version("GstApp", "1.0")
-    from gi.repository import Gst
-except ImportError as e:
-    raise ImportError(
-        "GStreamer Python bindings not found. Please install gstreamer1.0-python3"
-    ) from e
-
+from protorec.pipelines import Gst
 from protorec.pipelines.pipeline import CameraPipeline
 
 

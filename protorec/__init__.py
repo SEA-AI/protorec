@@ -12,10 +12,11 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Union
 
-import cv2
+import cv2  # type: ignore
 import numpy as np
 from flask import Flask, Response, jsonify, render_template
 
+from protorec.pipelines import Gst as Gst
 from protorec.pipelines.rgb_pipeline import RGBPipeline
 from protorec.pipelines.thermal_pipeline import ThermalPipeline
 

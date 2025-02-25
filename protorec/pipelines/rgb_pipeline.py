@@ -9,17 +9,7 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-try:
-    import gi
-
-    gi.require_version("Gst", "1.0")
-    gi.require_version("GstApp", "1.0")
-    from gi.repository import Gst
-except ImportError as e:
-    raise ImportError(
-        "GStreamer Python bindings not found. Please install gstreamer1.0-python3"
-    ) from e
-
+from protorec.pipelines import Gst
 from protorec.pipelines.pipeline import CameraPipeline
 
 
