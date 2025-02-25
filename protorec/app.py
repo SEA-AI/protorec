@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 import gi
 from gi.repository import Gst
@@ -21,12 +22,14 @@ def run():
     parser.add_argument(
         "--recdir",
         type=str,
-        default="/home/lite/POWER_Data/SDCard/DataSink/prototype_recordings",
+        default=(
+            Path.home() / "POWER_Data" / "SDCard" / "DataSink" / "prototype_recordings"
+        ).as_posix(),
     )
     parser.add_argument(
         "--config",
         type=str,
-        default="/home/lite/protorec/protorec/configs/cameras_config.json",
+        default=(Path.home() / "cameras_config.json").as_posix(),
     )
     args = parser.parse_args()
 
