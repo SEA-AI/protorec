@@ -4,11 +4,17 @@ dynamic = ['version']
 description = "A lightweight recording tool for capturing data from early-stage prototypes and experimental hardware."
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = ["flask", "flask-cors>=5.0.0", "gunicorn", "psutil>=7.0.0"]
+dependencies = [
+    "flask",
+    "numpy>=1.24.4",
+    "opencv-python>=4.11.0.86",
+    "psutil>=7.0.0",
+    "waitress>=3.0.0",
+]
 
 [project.scripts]
-protorec = "protorec.cli:run_prod"    # Production server
-protorec-dev = "protorec.cli:run_dev" # Development server
+protorec-app = "protorec.app:run"                             # Development server
+protorec-service = "protorec.systemd.install:install_service" # Install service
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -22,7 +28,12 @@ where = ["."]
 include = ["protorec*"]
 
 [tool.setuptools.package-data]
-protorec = ["templates/*", "static/**/*"]
+protorec = [
+    "templates/*",
+    "static/**/*",
+    "configs/*.json",
+    "systemd/protorec.service",
+]
 
 # Pylint settings
 [tool.pylint]

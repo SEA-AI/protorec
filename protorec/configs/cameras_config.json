@@ -1,0 +1,14 @@
+{
+    "cameras": [
+        {
+            "name": "rgb",
+            "element": "pylonsrc",
+            "properties": {
+                "do-timestamp": true
+            },
+            "format": ".avi",
+            "type": "color"
+        }
+    ],
+    "streaming_camera": "rgb"
+}
