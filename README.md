@@ -17,7 +17,7 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 
 ## ⚙️ Quick Start
 
-Download the latest wheel from the [releases page](https://github.com/SEA-AI/protorec/releases).
+Download the latest wheel from the [releases page](https://github.com/SEA-AI/protorec/releases) or create one with `uv build`.
 
 1. Install the wheel:
 
