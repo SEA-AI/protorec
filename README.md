@@ -6,7 +6,6 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 
 - 📹 **Record and monitor** live sessions
 - 💾 **Track storage usage** effectively
-- 📷 **Monitor sensors** such as cameras and IMUs
 
 ## 📋 Requirements
 
