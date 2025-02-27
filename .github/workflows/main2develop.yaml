@@ -19,17 +19,33 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create a branch for merging main into develop
+      - name: Ensure develop branch exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin develop; then
+            echo "⚠️ develop branch does not exist. Exiting..."
+            exit 0
+          fi
+
+      - name: Create sync branch from develop
         run: |
           git fetch origin
-          git checkout -b sync/main-to-develop origin/develop
-          git merge --no-ff origin/main -m "Auto-merge main into develop [bot]"
-          git push origin sync/main-to-develop
+          git checkout main  # 🚀 Explicitly checkout main first
+          git pull origin main
+          git checkout -b sync-main-to-develop origin/develop
+          git merge --no-ff main -m "Auto-merge main into develop [bot]" || echo "No changes to merge"
+
+      - name: Check for actual changes
+        run: |
+          if git diff --quiet origin/develop..sync-main-to-develop; then
+            echo "✅ No changes detected. Skipping PR creation."
+            exit 0
+          fi
+          git push origin sync-main-to-develop
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: sync/main-to-develop
+          branch: sync-main-to-develop
           base: develop
           title: 'Sync main to develop [bot]'
           body: 'Automated PR to keep develop up to date with main.'
