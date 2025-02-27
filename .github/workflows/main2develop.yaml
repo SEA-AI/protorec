@@ -1,0 +1,35 @@
+name: Merge Main to Develop
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git credentials
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Ensure develop branch exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin develop; then
+            echo "⚠️ develop branch does not exist. Skipping merge."
+            exit 0
+          fi
+
+      - name: Merge Main to Develop
+        run: |
+          git fetch origin
+          git checkout develop
+          git pull origin develop
+          git merge --no-ff origin/main -m "Auto-merge main into develop [bot]"
+          git push origin develop
