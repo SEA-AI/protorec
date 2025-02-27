@@ -13,7 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-protorec-app = "protorec.app:run" # Development server
+protorec-app = "protorec.app:run"                             # Development server
+protorec-service = "protorec.systemd.install:install_service" # Install service
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -27,7 +28,12 @@ where = ["."]
 include = ["protorec*"]
 
 [tool.setuptools.package-data]
-protorec = ["templates/*", "static/**/*"]
+protorec = [
+    "templates/*",
+    "static/**/*",
+    "configs/*.json",
+    "systemd/protorec.service",
+]
 
 # Pylint settings
 [tool.pylint]
