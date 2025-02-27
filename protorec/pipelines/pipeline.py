@@ -7,10 +7,11 @@ setup and control for video recording from different camera types.
 import os
 from typing import Any, Dict, Optional
 
-from protorec.pipelines import Gst
+from . import Gst
+from .pipeline_abc import BasePipeline
 
 
-class CameraPipeline:
+class CameraPipeline(BasePipeline):
     """Base class for camera pipeline handling.
 
     This class provides the basic structure and methods for creating and

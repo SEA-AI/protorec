@@ -16,11 +16,9 @@ import cv2  # type: ignore
 import numpy as np
 from flask import Flask, Response, jsonify, render_template
 
-from protorec.pipelines import Gst as Gst
-from protorec.pipelines.rgb_pipeline import RGBPipeline
-from protorec.pipelines.thermal_pipeline import ThermalPipeline
+from protorec.pipelines import RGBPipeline, ThermalPipeline
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def get_disk_usage(path: str = "/") -> Dict[str, float]:
@@ -57,9 +55,7 @@ class CameraManager:
     and frame retrieval for streaming.
     """
 
-    def __init__(
-        self, config_path: str, recdir: str, streaming_camera: str = "rgb"
-    ) -> None:
+    def __init__(self, config_path: str, recdir: str) -> None:
         """Initialize the camera manager.
 
         Parameters
@@ -68,8 +64,6 @@ class CameraManager:
             Path to camera configuration JSON file
         recdir : str
             Directory to store recordings
-        streaming_camera : str, optional
-            Name of camera to use for streaming, by default "rgb"
         """
         self.is_recording: bool = False
         self.recdir: str = recdir
