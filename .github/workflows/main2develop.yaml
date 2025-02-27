@@ -19,17 +19,19 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Ensure develop branch exists
-        run: |
-          if ! git ls-remote --exit-code --heads origin develop; then
-            echo "⚠️ develop branch does not exist. Skipping merge."
-            exit 0
-          fi
-
-      - name: Merge Main to Develop
+      - name: Create a branch for merging main into develop
         run: |
           git fetch origin
-          git checkout develop
-          git pull origin develop
+          git checkout -b sync/main-to-develop origin/develop
           git merge --no-ff origin/main -m "Auto-merge main into develop [bot]"
-          git push origin develop
+          git push origin sync/main-to-develop
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: sync/main-to-develop
+          base: develop
+          title: 'Sync main to develop [bot]'
+          body: 'Automated PR to keep develop up to date with main.'
+          labels: 'automation'
+          delete-branch: true
