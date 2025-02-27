@@ -17,26 +17,56 @@ ProtoRec is a Flask-based web application for managing audio and video recording
 
 ## ⚙️ Quick Start
 
-1. Install dependencies:
+Download the latest wheel from the [releases page](https://github.com/SEA-AI/protorec/releases) or create one with `uv build`.
 
-
-```bash
-sudo apt-get install libcairo-dev
-sudo apt-get install libgirepository1.0-dev
-uv sync
-```
-
-2. Run the development server:
+1. Install the wheel:
 
 ```bash
-uv run protorec-app
+sudo pip3 install /path/to/protorec-<version>-py3-none-any.whl
 ```
 
-or
+### 👨‍💻 Manual start
+
+1. Launch the web app:
 
 ```bash
-uv run python3 app.py
+protorec-app --config /absolute/path/to/your_config.json --recdir /absolute/path/to/your_recordings_dir
 ```
+
+2. Go to `http://<your-server-ip>:5000` on your browser.
+
+### 🐧 Start on Boot
+
+1. Install linux service:
+
+```bash
+sudo protorec-service --config /absolute/path/to/your_config.json --recdir /absolute/path/to/your_recordings_dir
+```
+
+2. Go to `http://<your-server-ip>:5000` on your browser.
+
+<details>
+<summary>Something went wrong?</summary>
+
+1. Check service status:
+
+```bash
+sudo systemctl status protorec
+```
+
+2. Check service logs:
+
+```bash
+sudo journalctl -u protorec -f
+```
+
+3. Stop service:
+
+```bash
+sudo systemctl stop protorec
+```
+
+</details>
 
 ## 💪 Contributing
 
@@ -63,48 +93,4 @@ uvx ruff check --fix
 uv add <package-name>
 uv add <package-name>@<version>
 uv sync  # Syncs dependencies from pyproject.toml
-```
-
-## 🛠️ Production Deployment
-
-ProtoRec is optimized for reliable hardware interaction with a single-worker architecture.
-
-1. Install the Python package:
-
-```bash
-pip install https://github.com/SEA-AI/protorec/releases/download/v0.1.0/protorec-0.1.0-py3-none-any.whl
-```
-
-2. Run the application:
-
-```bash
-protorec-app
-```
-
-## 👨🏻‍🔧 Setup as a service
-
-```
-sudo nano /etc/systemd/system/recordings.service
-```
-
-```
-Description=Recording App for Prototypes
-After=network.target
-
-[Service]
-User=lite
-Type=simple
-Environment="GENICAM_GENTL64_PATH=/opt/dart-bcon-mipi/lib"
-WorkingDirectory=/home/lite/
-ExecStart=/home/lite/.local/bin/protorec-app
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```
-sudo systemctl daemon-reload
-sudo systemctl enable recordings
-sudo systemctl start recordings
 ```
