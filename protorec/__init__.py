@@ -20,7 +20,7 @@ from protorec.pipelines import Gst as Gst
 from protorec.pipelines.rgb_pipeline import RGBPipeline
 from protorec.pipelines.thermal_pipeline import ThermalPipeline
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def get_disk_usage(path: str = "/") -> Dict[str, float]:
