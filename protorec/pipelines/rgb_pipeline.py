@@ -1,7 +1,7 @@
-"""RGB camera pipeline implementation for video recording.
+"""Thermal camera pipeline implementation for video recording.
 
-This module provides the RGBPipeline class that implements a GStreamer pipeline
-for recording from RGB/color cameras with NVIDIA hardware acceleration.
+This module provides the ThermalPipeline class that implements a GStreamer pipeline
+for recording from thermal cameras with 16-bit grayscale output.
 """
 
 from copy import deepcopy
@@ -13,12 +13,11 @@ from protorec.pipelines import Gst
 from protorec.pipelines.pipeline import CameraPipeline
 
 
-class RGBPipeline(CameraPipeline):
-    """Pipeline implementation for RGB/color cameras.
+class ThermalPipeline(CameraPipeline):
+    """Pipeline implementation for thermal cameras.
 
-    This class implements a GStreamer pipeline for recording from color cameras,
-    with support for both recording to file and real-time frame access through
-    an appsink element.
+    This class implements a GStreamer pipeline for recording from thermal cameras,
+    handling 16-bit grayscale format conversion and recording.
     """
 
     def __init__(self, config: Dict[str, Any], framerate: int = 30) -> None:
@@ -43,17 +42,15 @@ class RGBPipeline(CameraPipeline):
 
         # Common elements
         elements["videorate"] = Gst.ElementFactory.make("videorate", "videorate")
-        elements["capsfilter"] = Gst.ElementFactory.make("capsfilter", "capsfilter")
-        caps = Gst.Caps.from_string(
-            f"video/x-raw(memory:NVMM),framerate={self.framerate}/1"
-        )
-        if elements["capsfilter"] is not None:
-            elements["capsfilter"].set_property("caps", caps)
-
+        elements["capsfilter_16_le"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_le")
+        caps_16_le = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE")
+        elements["capsfilter_16_le"].set_property("caps", caps_16_le)
+        
         # Recording elements
-        elements["videoconvert"] = Gst.ElementFactory.make("nvvidconv", "nvvidconv")
-        elements["jpegenc"] = Gst.ElementFactory.make("nvjpegenc", "nvjpegenc")
-        elements["avimux"] = Gst.ElementFactory.make("avimux", "avimux")
+        elements["videoconvert_recording"] = Gst.ElementFactory.make("videoconvert", "videoconvert_recording")
+        elements["capsfilter16_be"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_be")
+        caps_16_be = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_BE")
+        elements["capsfilter16_be"].set_property("caps", caps_16_be)
 
         # Appsink elements
         elements.update(self._create_appsink_elements())
@@ -62,31 +59,39 @@ class RGBPipeline(CameraPipeline):
     def _create_appsink_elements(self) -> Dict[str, Optional[Gst.Element]]:
         """Create elements specific to the appsink branch."""
         elements: Dict[str, Optional[Gst.Element]] = {}
+        
         elements["queue_appsink"] = Gst.ElementFactory.make("queue", "queue_appsink")
         if elements["queue_appsink"] is not None:
             elements["queue_appsink"].set_property("max-size-buffers", 5)
             elements["queue_appsink"].set_property("leaky", 2)
 
-        elements["nvidconv_appsink"] = Gst.ElementFactory.make(
-            "nvvidconv", "nvvidconv_appsink"
-        )
-        elements["videoconvert_appsink"] = Gst.ElementFactory.make(
-            "videoconvert", "videoconvert_appsink"
-        )
-        elements["videorate_appsink"] = Gst.ElementFactory.make(
-            "videorate", "videorate_appsink"
-        )
-        elements["capsfilter_appsink"] = Gst.ElementFactory.make(
-            "capsfilter", "capsfilter_appsink"
-        )
+        elements["videoconvert_visualisation"] = Gst.ElementFactory.make("videoconvert", "videoconvert_visualisation")
 
-        caps_appsink = Gst.Caps.from_string("video/x-raw,format=BGR")
-        if elements["capsfilter_appsink"] is not None:
-            elements["capsfilter_appsink"].set_property("caps", caps_appsink)
+        elements["visualisation"] = Gst.ElementFactory.make("visualisation", "visualisation")
+        elements["visualisation"].set_property("display_mode", "clahe")
+        elements["visualisation"].set_property("display-linear-cutoff-frequency", 0.5)
+        elements["visualisation"].set_property("display-lower-saturation-thr", 15000)
+        elements["visualisation"].set_property("display-upper-saturation-thr", 28000)
+
+        elements["videoconvert_appsink"] = Gst.ElementFactory.make("videoconvert", "videoconvert_appsink")
+       
+        elements["capsfilter_appsink"] = Gst.ElementFactory.make("capsfilter", "capsfilter_appsink")
+        caps_visualisation = Gst.Caps.from_string(f"video/x-raw,format=RGB")
+        elements["capsfilter_appsink"].set_property("caps", caps_visualisation)
+
         return elements
 
     def construct_pipeline(self) -> Gst.Pipeline:
-        """Construct the GStreamer pipeline."""
+        """Construct the GStreamer pipeline.
+
+        Creates a pipeline that converts between GRAY16_LE and GRAY16_BE formats
+        for proper thermal data recording.
+
+        Returns
+        -------
+        Gst.Pipeline
+            Configured GStreamer pipeline for thermal camera
+        """
         pipeline = Gst.Pipeline.new("pipeline" + self.config["name"])
         self.src = self.get_src()
         self.sink = self.get_sink()
@@ -142,15 +147,13 @@ class RGBPipeline(CameraPipeline):
             for x in [
                 self.src,
                 elements["videorate"],
-                elements["capsfilter"],
-                elements["videoconvert"],
+                elements["capsfilter_16_le"],
                 self.tee,
             ]
         ):
             self.src.link(elements["videorate"])
-            elements["videorate"].link(elements["capsfilter"])
-            elements["capsfilter"].link(elements["videoconvert"])
-            elements["videoconvert"].link(self.tee)
+            elements["videorate"].link(elements["capsfilter_16_le"])
+            elements["capsfilter_16_le"].link(self.tee)
 
         # Link recording branch
         if all(
@@ -158,103 +161,33 @@ class RGBPipeline(CameraPipeline):
             for x in [
                 self.tee,
                 self.queue_recording,
-                elements["jpegenc"],
-                elements["avimux"],
+                elements["videoconvert_recording"],
+                elements["capsfilter16_be"],
                 self.sink,
             ]
         ):
             self.tee.link(self.queue_recording)
-            self.queue_recording.link(elements["jpegenc"])
-            elements["jpegenc"].link(elements["avimux"])
-            elements["avimux"].link(self.sink)
+            self.queue_recording.link(elements["videoconvert_recording"])
+            elements["videoconvert_recording"].link(elements["capsfilter16_be"])
+            elements["capsfilter16_be"].link(self.sink)
 
         # Link appsink branch
         if all(
             x is not None
             for x in [
                 elements["queue_appsink"],
-                elements["nvidconv_appsink"],
+                elements["videoconvert_visualisation"],
+                elements["visualisation"],
                 elements["videoconvert_appsink"],
                 elements["capsfilter_appsink"],
                 self.appsink,
             ]
         ):
             self.tee.link(elements["queue_appsink"])
-            elements["queue_appsink"].link(elements["nvidconv_appsink"])
-            elements["nvidconv_appsink"].link(elements["videoconvert_appsink"])
+            elements["queue_appsink"].link(elements["videoconvert_visualisation"])
+            elements["videoconvert_visualisation"].link(elements["visualisation"])
+            elements["visualisation"].link(elements["videoconvert_appsink"])
             elements["videoconvert_appsink"].link(elements["capsfilter_appsink"])
             elements["capsfilter_appsink"].link(self.appsink)
             self.appsink.connect("new-sample", self.callback)
 
-    def callback(self, sink: Gst.Element) -> Gst.FlowReturn:
-        """Process new frames from the pipeline.
-
-        Parameters
-        ----------
-        sink : Gst.Element
-            Appsink element that emitted the new-sample signal
-
-        Returns
-        -------
-        Gst.FlowReturn
-            GST_FLOW_OK if frame was processed successfully
-        """
-        sample = sink.emit("pull-sample")
-        if not sample:
-            return Gst.FlowReturn.ERROR
-
-        buffer = sample.get_buffer()
-        if not buffer:
-            return Gst.FlowReturn.ERROR
-
-        new_frame = self.gst_to_numpy(sample)
-        self._frame = new_frame
-
-        return Gst.FlowReturn.OK
-
-    def get_frame(self) -> Optional[np.ndarray]:
-        """Get the latest frame from the pipeline.
-
-        Returns
-        -------
-        Optional[np.ndarray]
-            Latest frame as numpy array, or None if no frame is available
-        """
-        return self._frame
-
-    @staticmethod
-    def gst_to_numpy(sample: Gst.Sample) -> np.ndarray:
-        """Convert GStreamer sample to numpy array.
-
-        Parameters
-        ----------
-        sample : Gst.Sample
-            GStreamer sample containing video frame
-
-        Returns
-        -------
-        np.ndarray
-            Video frame as numpy array
-        """
-        buf = sample.get_buffer()
-        caps = sample.get_caps()
-        struct = caps.get_structure(0)
-
-        height = struct.get_value("height")
-        width = struct.get_value("width")
-
-        array = np.ndarray(
-            (height, width, 3),
-            buffer=buf.extract_dup(0, buf.get_size()),
-            dtype=np.uint8,
-        )
-
-        return deepcopy(array)
-
-    def stop(self) -> None:
-        """Stop the pipeline and clean up resources.
-
-        Note: When using pylonsrc, the Jetson device may crash.
-        """
-        super().stop()
-        self._frame = None

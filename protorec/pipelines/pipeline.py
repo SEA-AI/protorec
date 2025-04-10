@@ -6,6 +6,9 @@ setup and control for video recording from different camera types.
 
 import os
 from typing import Any, Dict, Optional
+from copy import deepcopy
+
+import numpy as np
 
 from . import Gst
 from .pipeline_abc import BasePipeline
@@ -103,6 +106,7 @@ class CameraPipeline(BasePipeline):
         """Stop the pipeline and set state to NULL."""
         self.pipeline.send_event(Gst.Event.new_eos())
         self.pipeline.set_state(Gst.State.NULL)
+        self._frame = None
 
     def is_playing(self) -> bool:
         """Check if the pipeline is playing.
@@ -135,3 +139,68 @@ class CameraPipeline(BasePipeline):
             Path to directory where videos will be saved
         """
         self.dir = dir_path
+
+    def callback(self, sink: Gst.Element) -> Gst.FlowReturn:
+            """Process new frames from the pipeline.
+
+            Parameters
+            ----------
+            sink : Gst.Element
+                Appsink element that emitted the new-sample signal
+
+            Returns
+            -------
+            Gst.FlowReturn
+                GST_FLOW_OK if frame was processed successfully
+            """
+            sample = sink.emit("pull-sample")
+            if not sample:
+                return Gst.FlowReturn.ERROR
+
+            buffer = sample.get_buffer()
+            if not buffer:
+                return Gst.FlowReturn.ERROR
+
+            new_frame = self.gst_to_numpy(sample)
+            self._frame = new_frame
+
+            return Gst.FlowReturn.OK
+
+    def get_frame(self) -> Optional[np.ndarray]:
+        """Get the latest frame from the pipeline.
+
+        Returns
+        -------
+        Optional[np.ndarray]
+            Latest frame as numpy array, or None if no frame is available
+        """
+        return self._frame
+
+    @staticmethod
+    def gst_to_numpy(sample: Gst.Sample) -> np.ndarray:
+        """Convert GStreamer sample to numpy array.
+
+        Parameters
+        ----------
+        sample : Gst.Sample
+            GStreamer sample containing video frame
+
+        Returns
+        -------
+        np.ndarray
+            Video frame as numpy array
+        """
+        buf = sample.get_buffer()
+        caps = sample.get_caps()
+        struct = caps.get_structure(0)
+
+        height = struct.get_value("height")
+        width = struct.get_value("width")
+
+        array = np.ndarray(
+            (height, width, 3),
+            buffer=buf.extract_dup(0, buf.get_size()),
+            dtype=np.uint8,
+        )
+
+        return deepcopy(array)
