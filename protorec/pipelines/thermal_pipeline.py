@@ -4,7 +4,6 @@ This module provides the ThermalPipeline class that implements a GStreamer pipel
 for recording from thermal cameras with 16-bit grayscale output.
 """
 
-from copy import deepcopy
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -45,7 +44,7 @@ class ThermalPipeline(CameraPipeline):
         elements["capsfilter_16_le"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_le")
         caps_16_le = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE")
         elements["capsfilter_16_le"].set_property("caps", caps_16_le)
-        
+
         # Recording elements
         elements["videoconvert_recording"] = Gst.ElementFactory.make("videoconvert", "videoconvert_recording")
         elements["capsfilter16_be"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_be")
@@ -59,7 +58,7 @@ class ThermalPipeline(CameraPipeline):
     def _create_appsink_elements(self) -> Dict[str, Optional[Gst.Element]]:
         """Create elements specific to the appsink branch."""
         elements: Dict[str, Optional[Gst.Element]] = {}
-        
+
         elements["queue_appsink"] = Gst.ElementFactory.make("queue", "queue_appsink")
         if elements["queue_appsink"] is not None:
             elements["queue_appsink"].set_property("max-size-buffers", 5)
@@ -74,9 +73,9 @@ class ThermalPipeline(CameraPipeline):
         elements["visualisation"].set_property("display-upper-saturation-thr", 28000)
 
         elements["videoconvert_appsink"] = Gst.ElementFactory.make("videoconvert", "videoconvert_appsink")
-       
+
         elements["capsfilter_appsink"] = Gst.ElementFactory.make("capsfilter", "capsfilter_appsink")
-        caps_visualisation = Gst.Caps.from_string(f"video/x-raw,format=RGB")
+        caps_visualisation = Gst.Caps.from_string("video/x-raw,format=RGB")
         elements["capsfilter_appsink"].set_property("caps", caps_visualisation)
 
         return elements
@@ -190,4 +189,3 @@ class ThermalPipeline(CameraPipeline):
             elements["videoconvert_appsink"].link(elements["capsfilter_appsink"])
             elements["capsfilter_appsink"].link(self.appsink)
             self.appsink.connect("new-sample", self.callback)
-

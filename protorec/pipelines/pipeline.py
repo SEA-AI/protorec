@@ -5,8 +5,8 @@ setup and control for video recording from different camera types.
 """
 
 import os
-from typing import Any, Dict, Optional
 from copy import deepcopy
+from typing import Any, Dict, Optional
 
 import numpy as np
 

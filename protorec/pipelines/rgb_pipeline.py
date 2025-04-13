@@ -4,7 +4,6 @@ This module provides the RGBPipeline class that implements a GStreamer pipeline
 for recording from RGB/color cameras with NVIDIA hardware acceleration.
 """
 
-from copy import deepcopy
 from typing import Any, Dict, Optional
 
 import numpy as np
