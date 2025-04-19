@@ -4,7 +4,6 @@ This module provides the RGBPipeline class that implements a GStreamer pipeline
 for recording from RGB/color cameras with NVIDIA hardware acceleration.
 """
 
-from copy import deepcopy
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -185,76 +184,3 @@ class RGBPipeline(CameraPipeline):
             elements["videoconvert_appsink"].link(elements["capsfilter_appsink"])
             elements["capsfilter_appsink"].link(self.appsink)
             self.appsink.connect("new-sample", self.callback)
-
-    def callback(self, sink: Gst.Element) -> Gst.FlowReturn:
-        """Process new frames from the pipeline.
-
-        Parameters
-        ----------
-        sink : Gst.Element
-            Appsink element that emitted the new-sample signal
-
-        Returns
-        -------
-        Gst.FlowReturn
-            GST_FLOW_OK if frame was processed successfully
-        """
-        sample = sink.emit("pull-sample")
-        if not sample:
-            return Gst.FlowReturn.ERROR
-
-        buffer = sample.get_buffer()
-        if not buffer:
-            return Gst.FlowReturn.ERROR
-
-        new_frame = self.gst_to_numpy(sample)
-        self._frame = new_frame
-
-        return Gst.FlowReturn.OK
-
-    def get_frame(self) -> Optional[np.ndarray]:
-        """Get the latest frame from the pipeline.
-
-        Returns
-        -------
-        Optional[np.ndarray]
-            Latest frame as numpy array, or None if no frame is available
-        """
-        return self._frame
-
-    @staticmethod
-    def gst_to_numpy(sample: Gst.Sample) -> np.ndarray:
-        """Convert GStreamer sample to numpy array.
-
-        Parameters
-        ----------
-        sample : Gst.Sample
-            GStreamer sample containing video frame
-
-        Returns
-        -------
-        np.ndarray
-            Video frame as numpy array
-        """
-        buf = sample.get_buffer()
-        caps = sample.get_caps()
-        struct = caps.get_structure(0)
-
-        height = struct.get_value("height")
-        width = struct.get_value("width")
-
-        array = np.ndarray(
-            (height, width, 3),
-            buffer=buf.extract_dup(0, buf.get_size()),
-            dtype=np.uint8,
-        )
-
-        return deepcopy(array)
-
-    def stop(self) -> None:
-        """Stop the pipeline and clean up resources.
-
-        Note: When using pylonsrc, the Jetson device may crash.
-        """
-        super().stop()
-        self._frame = None

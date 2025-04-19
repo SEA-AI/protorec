@@ -106,9 +106,9 @@ class CameraManager:
             raise ValueError(
                 f"Unknown camera name: {streaming_camera}, should be one of {self.camera_names}"
             )
-        elif self.cameras[streaming_camera].config["type"] != "color":
+        elif self.cameras[streaming_camera].config["type"] not in ["color", "thermal"]:
             raise ValueError(
-                f"Camera {streaming_camera} is not a color camera, streaming is only supported for color cameras"
+                f"Camera {streaming_camera} is not a color/thermal camera, streaming is only supported for color/thermal cameras"
             )
         else:
             return streaming_camera
