@@ -20,20 +20,5 @@ jobs:
         with:
           clean: true
       - uses: astral-sh/ruff-action@v3
-        with:
-          version: 'latest'
-
-  ruff-format:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      # need to go first as it cleans the directory
-      - uses: actions/checkout@v4
-        with:
-          clean: true
-      - uses: astral-sh/ruff-action@v3
-        with:
-          version: 'latest'
-          args: 'format --diff'
+      - run: ruff check --fix
+      - run: ruff format
