@@ -41,14 +41,24 @@ class ThermalPipeline(CameraPipeline):
 
         # Common elements
         elements["videorate"] = Gst.ElementFactory.make("videorate", "videorate")
-        elements["capsfilter_16_le"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_le")
-        caps_16_le = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE")
+        elements["capsfilter_16_le"] = Gst.ElementFactory.make(
+            "capsfilter", "capsfilter16_le"
+        )
+        caps_16_le = Gst.Caps.from_string(
+            f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_LE"
+        )
         elements["capsfilter_16_le"].set_property("caps", caps_16_le)
 
         # Recording elements
-        elements["videoconvert_recording"] = Gst.ElementFactory.make("videoconvert", "videoconvert_recording")
-        elements["capsfilter16_be"] = Gst.ElementFactory.make("capsfilter", "capsfilter16_be")
-        caps_16_be = Gst.Caps.from_string(f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_BE")
+        elements["videoconvert_recording"] = Gst.ElementFactory.make(
+            "videoconvert", "videoconvert_recording"
+        )
+        elements["capsfilter16_be"] = Gst.ElementFactory.make(
+            "capsfilter", "capsfilter16_be"
+        )
+        caps_16_be = Gst.Caps.from_string(
+            f"video/x-raw,framerate={self.framerate}/1,format=GRAY16_BE"
+        )
         elements["capsfilter16_be"].set_property("caps", caps_16_be)
 
         # Appsink elements
@@ -64,17 +74,25 @@ class ThermalPipeline(CameraPipeline):
             elements["queue_appsink"].set_property("max-size-buffers", 5)
             elements["queue_appsink"].set_property("leaky", 2)
 
-        elements["videoconvert_visualisation"] = Gst.ElementFactory.make("videoconvert", "videoconvert_visualisation")
+        elements["videoconvert_visualisation"] = Gst.ElementFactory.make(
+            "videoconvert", "videoconvert_visualisation"
+        )
 
-        elements["visualisation"] = Gst.ElementFactory.make("visualisation", "visualisation")
+        elements["visualisation"] = Gst.ElementFactory.make(
+            "visualisation", "visualisation"
+        )
         elements["visualisation"].set_property("display_mode", "clahe")
         elements["visualisation"].set_property("display-linear-cutoff-frequency", 0.5)
         elements["visualisation"].set_property("display-lower-saturation-thr", 15000)
         elements["visualisation"].set_property("display-upper-saturation-thr", 28000)
 
-        elements["videoconvert_appsink"] = Gst.ElementFactory.make("videoconvert", "videoconvert_appsink")
+        elements["videoconvert_appsink"] = Gst.ElementFactory.make(
+            "videoconvert", "videoconvert_appsink"
+        )
 
-        elements["capsfilter_appsink"] = Gst.ElementFactory.make("capsfilter", "capsfilter_appsink")
+        elements["capsfilter_appsink"] = Gst.ElementFactory.make(
+            "capsfilter", "capsfilter_appsink"
+        )
         caps_visualisation = Gst.Caps.from_string("video/x-raw,format=RGB")
         elements["capsfilter_appsink"].set_property("caps", caps_visualisation)
 

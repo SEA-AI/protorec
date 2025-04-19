@@ -141,30 +141,30 @@ class CameraPipeline(BasePipeline):
         self.dir = dir_path
 
     def callback(self, sink: Gst.Element) -> Gst.FlowReturn:
-            """Process new frames from the pipeline.
+        """Process new frames from the pipeline.
 
-            Parameters
-            ----------
-            sink : Gst.Element
-                Appsink element that emitted the new-sample signal
+        Parameters
+        ----------
+        sink : Gst.Element
+            Appsink element that emitted the new-sample signal
 
-            Returns
-            -------
-            Gst.FlowReturn
-                GST_FLOW_OK if frame was processed successfully
-            """
-            sample = sink.emit("pull-sample")
-            if not sample:
-                return Gst.FlowReturn.ERROR
+        Returns
+        -------
+        Gst.FlowReturn
+            GST_FLOW_OK if frame was processed successfully
+        """
+        sample = sink.emit("pull-sample")
+        if not sample:
+            return Gst.FlowReturn.ERROR
 
-            buffer = sample.get_buffer()
-            if not buffer:
-                return Gst.FlowReturn.ERROR
+        buffer = sample.get_buffer()
+        if not buffer:
+            return Gst.FlowReturn.ERROR
 
-            new_frame = self.gst_to_numpy(sample)
-            self._frame = new_frame
+        new_frame = self.gst_to_numpy(sample)
+        self._frame = new_frame
 
-            return Gst.FlowReturn.OK
+        return Gst.FlowReturn.OK
 
     def get_frame(self) -> Optional[np.ndarray]:
         """Get the latest frame from the pipeline.
