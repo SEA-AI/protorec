@@ -36,6 +36,32 @@ class RGBPipeline(CameraPipeline):
         self.queue_recording: Optional[Gst.Element] = None
         self.appsink: Optional[Gst.Element] = None
 
+    def _create_recording_elements(self) -> Dict[str, Optional[Gst.Element]]:
+        """Create recording branch elements based on the configured format."""
+        elements: Dict[str, Optional[Gst.Element]] = {}
+
+        if self.format == ".avi":
+            elements["encoder"] = Gst.ElementFactory.make("nvjpegenc", "nvjpegenc")
+            elements["muxer"] = Gst.ElementFactory.make("avimux", "avimux")
+        elif self.format == ".mp4":
+            elements["encoder"] = Gst.ElementFactory.make("nvv4l2h264enc", "h264enc")
+            if elements["encoder"] is not None:
+                elements["encoder"].set_property("insert-sps-pps-at-idr", True)
+                elements["encoder"].set_property("idrinterval", 30)
+                elements["encoder"].set_property("EnableLossless", True)
+                elements["encoder"].set_property("profile", 4)
+            elements["parser"] = Gst.ElementFactory.make("h264parse", "h264parse")
+            if elements["parser"] is not None:
+                elements["parser"].set_property("config-interval", -1)
+            elements["muxer"] = Gst.ElementFactory.make("qtmux", "qtmux")
+        else:
+            raise ValueError(
+                f"Unsupported RGB recording format: {self.format}. "
+                "Use '.avi' for MJPEG or '.mp4' for H.264 lossless."
+            )
+
+        return elements
+
     def _create_elements(self) -> Dict[str, Optional[Gst.Element]]:
         """Create all GStreamer elements for the pipeline."""
         elements: Dict[str, Optional[Gst.Element]] = {}
@@ -49,10 +75,8 @@ class RGBPipeline(CameraPipeline):
         if elements["capsfilter"] is not None:
             elements["capsfilter"].set_property("caps", caps)
 
-        # Recording elements
         elements["videoconvert"] = Gst.ElementFactory.make("nvvidconv", "nvvidconv")
-        elements["jpegenc"] = Gst.ElementFactory.make("nvjpegenc", "nvjpegenc")
-        elements["avimux"] = Gst.ElementFactory.make("avimux", "avimux")
+        elements.update(self._create_recording_elements())
 
         # Appsink elements
         elements.update(self._create_appsink_elements())
@@ -152,20 +176,23 @@ class RGBPipeline(CameraPipeline):
             elements["videoconvert"].link(self.tee)
 
         # Link recording branch
-        if all(
-            x is not None
-            for x in [
-                self.tee,
-                self.queue_recording,
-                elements["jpegenc"],
-                elements["avimux"],
-                self.sink,
-            ]
-        ):
+        recording_chain = [
+            self.tee,
+            self.queue_recording,
+            elements["encoder"],
+            elements.get("parser"),
+            elements["muxer"],
+            self.sink,
+        ]
+        if all(x is not None for x in recording_chain):
             self.tee.link(self.queue_recording)
-            self.queue_recording.link(elements["jpegenc"])
-            elements["jpegenc"].link(elements["avimux"])
-            elements["avimux"].link(self.sink)
+            self.queue_recording.link(elements["encoder"])
+            previous = elements["encoder"]
+            if elements.get("parser") is not None:
+                previous.link(elements["parser"])
+                previous = elements["parser"]
+            previous.link(elements["muxer"])
+            elements["muxer"].link(self.sink)
 
         # Link appsink branch
         if all(

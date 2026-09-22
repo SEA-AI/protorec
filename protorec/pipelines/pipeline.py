@@ -31,7 +31,7 @@ class CameraPipeline(BasePipeline):
             - name: Camera name
             - element: GStreamer source element
             - properties: Element properties
-            - format: Output format
+            - format: Output file extension (e.g. ".avi", ".mp4", ".raw")
         framerate : int, optional
             Video framerate, by default 30
         """
