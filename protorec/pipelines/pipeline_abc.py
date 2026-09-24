@@ -15,20 +15,12 @@ class BasePipeline(abc.ABC):
         """Construct the GStreamer pipeline."""
 
     @abc.abstractmethod
-    def run(self) -> bool:
-        """Run the pipeline and report whether it started."""
+    def run(self) -> None:
+        """Run the pipeline."""
 
     @abc.abstractmethod
     def stop(self) -> None:
         """Stop the pipeline."""
-
-    @abc.abstractmethod
-    def start_preview(self) -> None:
-        """Start streaming frames without recording."""
-
-    @abc.abstractmethod
-    def stop_preview(self) -> None:
-        """Stop streaming frames without recording."""
 
     @abc.abstractmethod
     def is_playing(self) -> bool:

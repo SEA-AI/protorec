@@ -4,38 +4,21 @@ This module provides the base CameraPipeline class that handles GStreamer pipeli
 setup and control for video recording from different camera types.
 """
 
-import logging
 import os
-import time
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 
 from . import Gst
 from .pipeline_abc import BasePipeline
 
-logger = logging.getLogger(__name__)
-
-# A camera can stay hidden from device enumeration for a moment after another
-# pipeline, or pylonsrc's own startup probe, closes it
-START_ATTEMPTS = 10
-START_RETRY_DELAY_S = 0.5
-
 
 class CameraPipeline(BasePipeline):
     """Base class for camera pipeline handling.
 
-    This class assembles two GStreamer pipelines from element chains that
-    subclasses provide:
-
-    - Recording: ``src -> source chain -> tee``, where the tee feeds both
-      ``queue -> recording chain -> filesink`` and ``queue -> appsink chain ->
-      appsink``.
-    - Preview: ``src -> source chain -> queue -> appsink chain -> appsink``,
-      which streams frames without writing to disk.
-
-    Both pipelines open the same camera, so only one of them may run at a time.
+    This class provides the basic structure and methods for creating and
+    controlling GStreamer pipelines for video recording.
     """
 
     def __init__(self, config: Dict[str, Any], framerate: int = 30) -> None:
@@ -54,189 +37,30 @@ class CameraPipeline(BasePipeline):
         """
         self.config = config
         self.framerate = framerate
+        self.src: Optional[Gst.Element] = None
         self.sink: Optional[Gst.Element] = None
-        self._frame: Optional[np.ndarray] = None
         self.pipeline: Gst.Pipeline = self.construct_pipeline()
-        self.preview_pipeline: Gst.Pipeline = self.construct_preview_pipeline()
         self.terminate = False
         self.dir = "."
         self.format = config["format"]
 
-    def _create_source_chain(self) -> List[Gst.Element]:
-        """Create the elements between the source and the tee.
-
-        Returns
-        -------
-        List[Gst.Element]
-            Elements to link in order after the source
-
-        Raises
-        ------
-        NotImplementedError
-            If not implemented by subclass
-        """
-        raise NotImplementedError("Subclasses must implement _create_source_chain()")
-
-    def _create_recording_chain(self) -> List[Gst.Element]:
-        """Create the elements between the recording queue and the filesink.
-
-        Returns
-        -------
-        List[Gst.Element]
-            Elements to link in order before the filesink
-
-        Raises
-        ------
-        NotImplementedError
-            If not implemented by subclass
-        """
-        raise NotImplementedError("Subclasses must implement _create_recording_chain()")
-
-    def _create_appsink_chain(self) -> List[Gst.Element]:
-        """Create the elements between the appsink queue and the appsink.
-
-        Returns
-        -------
-        List[Gst.Element]
-            Elements to link in order before the appsink
-
-        Raises
-        ------
-        NotImplementedError
-            If not implemented by subclass
-        """
-        raise NotImplementedError("Subclasses must implement _create_appsink_chain()")
-
     def construct_pipeline(self) -> Gst.Pipeline:
-        """Construct the recording pipeline.
+        """Construct the GStreamer pipeline.
+
+        This method should be implemented by subclasses to create
+        their specific pipeline configurations.
 
         Returns
         -------
         Gst.Pipeline
-            Pipeline that records to the filesink and streams to the appsink
-        """
-        pipeline = Gst.Pipeline.new("pipeline" + self.config["name"])
-        tee = self._make_element("tee", "tee")
-        self.sink = self.get_sink()
-
-        self._link_chain(pipeline, [self.get_src(), *self._create_source_chain(), tee])
-        self._link_chain(
-            pipeline,
-            [
-                tee,
-                self._make_queue("queue_recording"),
-                *self._create_recording_chain(),
-                self.sink,
-            ],
-        )
-        self._link_chain(
-            pipeline,
-            [
-                tee,
-                self._make_queue("queue_appsink"),
-                *self._create_appsink_chain(),
-                self.get_appsink(),
-            ],
-        )
-        return pipeline
-
-    def construct_preview_pipeline(self) -> Gst.Pipeline:
-        """Construct the preview pipeline.
-
-        Returns
-        -------
-        Gst.Pipeline
-            Pipeline that only streams to the appsink
-        """
-        pipeline = Gst.Pipeline.new("preview" + self.config["name"])
-        self._link_chain(
-            pipeline,
-            [
-                self.get_src(),
-                *self._create_source_chain(),
-                self._make_queue("queue_appsink"),
-                *self._create_appsink_chain(),
-                self.get_appsink(),
-            ],
-        )
-        return pipeline
-
-    @staticmethod
-    def _make_element(
-        factory: str, name: str, properties: Optional[Dict[str, Any]] = None
-    ) -> Gst.Element:
-        """Create an element and apply properties.
-
-        Parameters
-        ----------
-        factory : str
-            GStreamer element factory name
-        name : str
-            Element name, unique within its pipeline
-        properties : Optional[Dict[str, Any]], optional
-            Element properties to set, by default None
-
-        Returns
-        -------
-        Gst.Element
-            Configured element
+            Configured GStreamer pipeline
 
         Raises
         ------
-        RuntimeError
-            If the element cannot be created
+        NotImplementedError
+            If not implemented by subclass
         """
-        element = Gst.ElementFactory.make(factory, name)
-        if element is None:
-            raise RuntimeError(f"Could not create {factory} element")
-
-        for key, value in (properties or {}).items():
-            element.set_property(key, value)
-        return element
-
-    def _make_queue(self, name: str) -> Gst.Element:
-        """Create a leaky queue that drops old buffers when full.
-
-        Parameters
-        ----------
-        name : str
-            Element name, unique within its pipeline
-
-        Returns
-        -------
-        Gst.Element
-            Configured queue element
-        """
-        return self._make_element("queue", name, {"max-size-buffers": 5, "leaky": 2})
-
-    @staticmethod
-    def _link_chain(pipeline: Gst.Pipeline, chain: List[Gst.Element]) -> None:
-        """Add elements to the pipeline and link them in order.
-
-        Elements already in the pipeline, such as a tee shared by several
-        branches, are linked without being added again.
-
-        Parameters
-        ----------
-        pipeline : Gst.Pipeline
-            Pipeline to add the elements to
-        chain : List[Gst.Element]
-            Elements to link, from upstream to downstream
-
-        Raises
-        ------
-        RuntimeError
-            If two consecutive elements cannot be linked
-        """
-        for element in chain:
-            if element.get_parent() is None:
-                pipeline.add(element)
-
-        for upstream, downstream in zip(chain, chain[1:]):
-            if not upstream.link(downstream):
-                raise RuntimeError(
-                    f"Could not link {upstream.get_name()} to {downstream.get_name()}"
-                )
+        raise NotImplementedError("Subclasses must implement construct_pipeline()")
 
     def get_src(self) -> Gst.Element:
         """Get source element and apply properties.
@@ -246,9 +70,13 @@ class CameraPipeline(BasePipeline):
         Gst.Element
             Configured source element
         """
-        return self._make_element(
-            self.config["element"], "src", self.config["properties"]
-        )
+        src = Gst.ElementFactory.make(self.config["element"], "src")
+        if src is None:
+            raise RuntimeError(f"Could not create {self.config['element']} element")
+
+        for key, value in self.config["properties"].items():
+            src.set_property(key, value)
+        return src
 
     def get_sink(self) -> Gst.Element:
         """Get sink element.
@@ -258,109 +86,26 @@ class CameraPipeline(BasePipeline):
         Gst.Element
             Configured filesink element
         """
-        return self._make_element("filesink", "filesink")
+        sink = Gst.ElementFactory.make("filesink", "filesink")
+        if sink is None:
+            raise RuntimeError("Could not create filesink element")
+        return sink
 
-    def get_appsink(self) -> Gst.Element:
-        """Get appsink element that keeps only the latest frame.
-
-        Returns
-        -------
-        Gst.Element
-            Configured appsink element connected to the frame callback
-        """
-        appsink = self._make_element(
-            "appsink",
-            "appsink",
-            {"emit-signals": True, "sync": True, "max-buffers": 1, "drop": True},
-        )
-        appsink.connect("new-sample", self.callback)
-        return appsink
-
-    def run(self) -> bool:
-        """Run the pipeline and set the sink location.
-
-        Returns
-        -------
-        bool
-            True if the pipeline started, False if it failed after retries
-        """
+    def run(self) -> None:
+        """Run the pipeline and set the sink location."""
         if self.sink is None:
             raise RuntimeError("Pipeline sink not initialized")
 
         self.sink.set_property(
             "location", os.path.join(self.dir, self.config["name"] + self.format)
         )
-        return self._play(self.pipeline)
+        self.pipeline.set_state(Gst.State.READY)
+        self.pipeline.set_state(Gst.State.PLAYING)
 
     def stop(self) -> None:
         """Stop the pipeline and set state to NULL."""
         self.pipeline.send_event(Gst.Event.new_eos())
         self.pipeline.set_state(Gst.State.NULL)
-        self._frame = None
-
-    def start_preview(self) -> None:
-        """Start streaming frames to the appsink without recording."""
-        self._play(self.preview_pipeline)
-
-    @classmethod
-    def _play(cls, pipeline: Gst.Pipeline) -> bool:
-        """Set the pipeline to PLAYING, retrying while the camera is unavailable.
-
-        Parameters
-        ----------
-        pipeline : Gst.Pipeline
-            Pipeline to start
-
-        Returns
-        -------
-        bool
-            True if the pipeline started, False if every attempt failed
-        """
-        name = pipeline.get_name()
-        for attempt in range(1, START_ATTEMPTS + 1):
-            if pipeline.set_state(Gst.State.PLAYING) != Gst.StateChangeReturn.FAILURE:
-                if attempt > 1:
-                    logger.info("Started %s on attempt %d", name, attempt)
-                return True
-
-            error = cls._pop_error(pipeline)
-            pipeline.set_state(Gst.State.NULL)
-            logger.info(
-                "Could not start %s (attempt %d/%d): %s",
-                name,
-                attempt,
-                START_ATTEMPTS,
-                error,
-            )
-            if attempt < START_ATTEMPTS:
-                time.sleep(START_RETRY_DELAY_S)
-
-        logger.warning("Gave up starting %s after %d attempts", name, START_ATTEMPTS)
-        return False
-
-    @staticmethod
-    def _pop_error(pipeline: Gst.Pipeline) -> str:
-        """Pop the first error message posted on the pipeline bus.
-
-        Parameters
-        ----------
-        pipeline : Gst.Pipeline
-            Pipeline whose bus to read, before it is set to NULL
-
-        Returns
-        -------
-        str
-            Error text with debug details, or a note that no error was posted
-        """
-        message = pipeline.get_bus().pop_filtered(Gst.MessageType.ERROR)
-        if message is None:
-            return "no error on the bus"
-        error, debug = message.parse_error()
-        return f"{error.message} ({debug})"
-
-    def stop_preview(self) -> None:
-        """Stop the preview pipeline and release the camera."""
-        self.preview_pipeline.set_state(Gst.State.NULL)
         self._frame = None
 
     def is_playing(self) -> bool:
