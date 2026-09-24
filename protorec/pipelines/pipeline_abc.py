@@ -23,6 +23,14 @@ class BasePipeline(abc.ABC):
         """Stop the pipeline."""
 
     @abc.abstractmethod
+    def start_preview(self) -> None:
+        """Start streaming frames without recording."""
+
+    @abc.abstractmethod
+    def stop_preview(self) -> None:
+        """Stop streaming frames without recording."""
+
+    @abc.abstractmethod
     def is_playing(self) -> bool:
         """Check if pipeline is playing."""
 

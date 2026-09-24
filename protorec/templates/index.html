@@ -41,13 +41,56 @@
         }
 
             /* Camera Feed Styling */
+        .viewer {
+        position: relative;
+        width: 100%;
+        margin-top: auto; /* Push the image to the bottom */
+        }
+
         #cameraFeed {
+        display: block;
         width: 100%; /* Ensure it fits the container */
         max-width: 100%; /* Avoid overflow */
         height: auto; /* Maintain aspect ratio */
         border-radius: 8px;
         box-shadow: 0px 4px 6px rgba(0,0,0,0.2);
-        margin-top: auto; /* Push the image to the bottom */
+        user-select: none;
+        }
+
+        #cameraFeed.zoomed {
+        cursor: grab;
+        touch-action: none; /* Pan with touch instead of scrolling the page */
+        }
+
+        #cameraFeed.dragging {
+        cursor: grabbing;
+        }
+
+        /* Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .zoom-controls button {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            font-size: 20px;
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .zoom-controls button:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .zoom-controls #zoomLevel {
+            width: 60px;
+            font-size: 14px;
         }
 
         #status {
@@ -212,14 +255,106 @@
             button.disabled = false;
         }
 
-        async function updateFrame() {
-            const img = document.getElementById("cameraFeed");
-            img.src = `/frame?${new Date().getTime()}`; // Prevents caching
+        const MAX_ZOOM = 8;
+        const ZOOM_STEP = 1.5;
+
+        // Zoom factor and visible center, as fractions of the full frame
+        const view = { zoom: 1, cx: 0.5, cy: 0.5 };
+        let drag = null;
+        let frameLoading = false;
+        let framePending = false;
+
+        function updateFrame() {
+            // Wait for the current frame so zoom changes don't pile up requests
+            if (frameLoading) {
+                framePending = true;
+                return;
+            }
+            frameLoading = true;
+            const params = new URLSearchParams({
+                zoom: view.zoom,
+                cx: view.cx,
+                cy: view.cy,
+                t: Date.now(), // Prevents caching
+            });
+            document.getElementById("cameraFeed").src = `/frame?${params}`;
         }
 
-        setInterval(updateFrame, 1000); // Fetch a new frame every second
+        function onFrameDone() {
+            frameLoading = false;
+            if (framePending) {
+                framePending = false;
+                updateFrame();
+            }
+        }
+
+        function setView(zoom, cx, cy) {
+            view.zoom = Math.min(Math.max(zoom, 1), MAX_ZOOM);
+            const half = 0.5 / view.zoom;
+            view.cx = Math.min(Math.max(cx, half), 1 - half);
+            view.cy = Math.min(Math.max(cy, half), 1 - half);
+
+            document.getElementById("zoomLevel").textContent = `${view.zoom.toFixed(1)}×`;
+            document.getElementById("cameraFeed").classList.toggle("zoomed", view.zoom > 1);
+            updateFrame();
+        }
+
+        // Zoom by factor, keeping the frame point at image position (u, v) in place
+        function zoomAt(factor, u = 0.5, v = 0.5) {
+            const x = view.cx + (u - 0.5) / view.zoom;
+            const y = view.cy + (v - 0.5) / view.zoom;
+            const zoom = Math.min(Math.max(view.zoom * factor, 1), MAX_ZOOM);
+            setView(zoom, x - (u - 0.5) / zoom, y - (v - 0.5) / zoom);
+        }
+
+        function resetZoom() {
+            setView(1, 0.5, 0.5);
+        }
+
+        function initializeViewer() {
+            const img = document.getElementById("cameraFeed");
+
+            img.addEventListener("wheel", (event) => {
+                event.preventDefault();
+                const rect = img.getBoundingClientRect();
+                const deltaY = event.deltaMode === 1 ? event.deltaY * 40 : event.deltaY;
+                zoomAt(
+                    Math.exp(-deltaY / 500),
+                    (event.clientX - rect.left) / rect.width,
+                    (event.clientY - rect.top) / rect.height,
+                );
+            }, { passive: false });
+
+            img.addEventListener("pointerdown", (event) => {
+                if (view.zoom <= 1) return;
+                drag = { x: event.clientX, y: event.clientY, cx: view.cx, cy: view.cy };
+                img.setPointerCapture(event.pointerId);
+                img.classList.add("dragging");
+            });
+
+            img.addEventListener("pointermove", (event) => {
+                if (!drag) return;
+                const rect = img.getBoundingClientRect();
+                setView(
+                    view.zoom,
+                    drag.cx - (event.clientX - drag.x) / rect.width / view.zoom,
+                    drag.cy - (event.clientY - drag.y) / rect.height / view.zoom,
+                );
+            });
+
+            const endDrag = () => {
+                drag = null;
+                img.classList.remove("dragging");
+            };
+            img.addEventListener("pointerup", endDrag);
+            img.addEventListener("pointercancel", endDrag);
+
+            updateFrame();
+            setInterval(updateFrame, 1000); // Fetch a new frame every second
+        }
 
         document.addEventListener("DOMContentLoaded", initializeUI);
+        document.addEventListener("DOMContentLoaded", initializeViewer);
     </script>
 </head>
 <body>
@@ -230,7 +365,16 @@
         <div class="button-container">
             <button id="recordButton" data-action="start" class="start" onclick="handleButtonClick()">Start Recording</button>
         </div>
-        <img id="cameraFeed" src="" alt="Camera Feed">
+        <div class="viewer">
+            <img id="cameraFeed" alt="Camera Feed" draggable="false"
+                 title="Scroll to zoom, drag to pan"
+                 onload="onFrameDone()" onerror="onFrameDone()">
+            <div class="zoom-controls">
+                <button title="Zoom out" onclick="zoomAt(1 / ZOOM_STEP)">&minus;</button>
+                <button id="zoomLevel" title="Reset zoom" onclick="resetZoom()">1.0×</button>
+                <button title="Zoom in" onclick="zoomAt(ZOOM_STEP)">+</button>
+            </div>
+        </div>
     </div>
 </body>
 </html>

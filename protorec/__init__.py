@@ -8,17 +8,20 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
 
 import cv2  # type: ignore
 import numpy as np
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template, request
 
 from protorec.pipelines import RGBPipeline, ThermalPipeline
 
 __version__ = "0.2.0"
+
+MAX_ZOOM = 8.0
 
 
 def get_disk_usage(path: str = "/") -> Dict[str, float]:
@@ -46,6 +49,53 @@ def get_disk_usage(path: str = "/") -> Dict[str, float]:
     percent_used = (used / total) * 100
 
     return {"total": total, "free": free, "used": used, "percent_used": percent_used}
+
+
+def crop_zoom(frame: np.ndarray, zoom: float, cx: float, cy: float) -> np.ndarray:
+    """Crop the frame to the region shown at the given zoom level.
+
+    Parameters
+    ----------
+    frame : np.ndarray
+        Full-resolution frame with shape (height, width, channels)
+    zoom : float
+        Zoom factor, clamped to [1, MAX_ZOOM]; 1 keeps the whole frame
+    cx : float
+        Horizontal crop center as a fraction of the frame width
+    cy : float
+        Vertical crop center as a fraction of the frame height
+
+    Returns
+    -------
+    np.ndarray
+        View of the cropped region, shifted to stay inside the frame
+    """
+    zoom = min(max(zoom, 1.0), MAX_ZOOM)
+    height, width = frame.shape[:2]
+    crop_width = max(1, round(width / zoom))
+    crop_height = max(1, round(height / zoom))
+    left = min(max(round(cx * width - crop_width / 2), 0), width - crop_width)
+    top = min(max(round(cy * height - crop_height / 2), 0), height - crop_height)
+    return frame[top : top + crop_height, left : left + crop_width]
+
+
+def _float_arg(name: str, default: float) -> float:
+    """Read a finite float query parameter from the current request.
+
+    Parameters
+    ----------
+    name : str
+        Query parameter name
+    default : float
+        Value used when the parameter is missing, invalid or not finite
+
+    Returns
+    -------
+    float
+        Parsed parameter value
+    """
+    value = request.args.get(name, default, type=float)
+    return value if math.isfinite(value) else default
 
 
 class CameraManager:
@@ -79,6 +129,17 @@ class CameraManager:
             self.cameras_config["streaming_camera"]
         )
         self.recording_start_time: Optional[datetime.datetime] = None
+        self._start_preview()
+
+    def _start_preview(self) -> None:
+        """Start the preview of the streaming camera, if one is configured."""
+        if self.streaming_camera is not None:
+            self.cameras[self.streaming_camera].start_preview()
+
+    def _stop_preview(self) -> None:
+        """Stop the preview of the streaming camera, if one is configured."""
+        if self.streaming_camera is not None:
+            self.cameras[self.streaming_camera].stop_preview()
 
     def _validate_streaming_camera(
         self, streaming_camera: Optional[str]
@@ -158,6 +219,8 @@ class CameraManager:
         for camera_pipeline in self.cameras.values():
             camera_pipeline.set_dir(directory)
 
+        # The recording pipeline opens the same camera as the preview
+        self._stop_preview()
         for camera_pipeline in self.cameras.values():
             camera_pipeline.run()
 
@@ -189,6 +252,7 @@ class CameraManager:
 
         self.is_recording = False
         self.recording_start_time = None
+        self._start_preview()
         return {"status": "recording stopped"}
 
     def get_state(self) -> Dict[str, Any]:
@@ -212,8 +276,19 @@ class CameraManager:
             "recording_duration": elapsed_time,
         }
 
-    def get_frame(self) -> np.ndarray:
+    def get_frame(
+        self, zoom: float = 1.0, cx: float = 0.5, cy: float = 0.5
+    ) -> np.ndarray:
         """Get current frame from streaming camera.
+
+        Parameters
+        ----------
+        zoom : float, optional
+            Zoom factor applied to the full-resolution frame, by default 1.0
+        cx : float, optional
+            Horizontal zoom center as a fraction of the frame width, by default 0.5
+        cy : float, optional
+            Vertical zoom center as a fraction of the frame height, by default 0.5
 
         Returns
         -------
@@ -227,7 +302,7 @@ class CameraManager:
         if frame is None:
             return np.zeros((720, 1280, 3), dtype=np.uint8)
 
-        frame = cv2.resize(frame, (1280, 720))
+        frame = cv2.resize(crop_zoom(frame, zoom, cx, cy), (1280, 720))
         return frame
 
 
@@ -270,7 +345,11 @@ def create_app(config_path: str, recdir: str) -> Flask:
 
     @app.route("/frame")
     def get_frame() -> Response:
-        frame = camera_manager.get_frame()
+        frame = camera_manager.get_frame(
+            zoom=_float_arg("zoom", 1.0),
+            cx=_float_arg("cx", 0.5),
+            cy=_float_arg("cy", 0.5),
+        )
         _, buffer = cv2.imencode(".jpg", frame)
         return Response(buffer.tobytes(), mimetype="image/jpeg")
 
