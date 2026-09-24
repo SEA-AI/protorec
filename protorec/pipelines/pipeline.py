@@ -291,8 +291,32 @@ class CameraPipeline(BasePipeline):
         """Start streaming frames to the appsink without recording."""
         ret = self.preview_pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
-            logger.warning("Could not start preview for %s", self.config["name"])
+            logger.warning(
+                "Could not start preview for %s: %s",
+                self.config["name"],
+                self._pop_error(self.preview_pipeline),
+            )
             self.preview_pipeline.set_state(Gst.State.NULL)
+
+    @staticmethod
+    def _pop_error(pipeline: Gst.Pipeline) -> str:
+        """Pop the first error message posted on the pipeline bus.
+
+        Parameters
+        ----------
+        pipeline : Gst.Pipeline
+            Pipeline whose bus to read, before it is set to NULL
+
+        Returns
+        -------
+        str
+            Error text with debug details, or a note that no error was posted
+        """
+        message = pipeline.get_bus().pop_filtered(Gst.MessageType.ERROR)
+        if message is None:
+            return "no error on the bus"
+        error, debug = message.parse_error()
+        return f"{error.message} ({debug})"
 
     def stop_preview(self) -> None:
         """Stop the preview pipeline and release the camera."""
