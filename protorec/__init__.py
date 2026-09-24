@@ -298,7 +298,8 @@ class CameraManager:
         Returns
         -------
         np.ndarray
-            Current video frame as numpy array with shape (720, 1280, 3)
+            Current video frame, or the zoomed region of it, at camera resolution.
+            A black (720, 1280, 3) frame when no frame is available.
         """
         if self.streaming_camera is None:
             return np.zeros((720, 1280, 3), dtype=np.uint8)
@@ -307,8 +308,7 @@ class CameraManager:
         if frame is None:
             return np.zeros((720, 1280, 3), dtype=np.uint8)
 
-        frame = cv2.resize(crop_zoom(frame, zoom, cx, cy), (1280, 720))
-        return frame
+        return crop_zoom(frame, zoom, cx, cy)
 
 
 def create_app(config_path: str, recdir: str) -> Flask:
