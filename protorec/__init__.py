@@ -129,6 +129,17 @@ class CameraManager:
             self.cameras_config["streaming_camera"]
         )
         self.recording_start_time: Optional[datetime.datetime] = None
+        self._start_preview()
+
+    def _start_preview(self) -> None:
+        """Start the preview of the streaming camera, if one is configured."""
+        if self.streaming_camera is not None:
+            self.cameras[self.streaming_camera].start_preview()
+
+    def _stop_preview(self) -> None:
+        """Stop the preview of the streaming camera, if one is configured."""
+        if self.streaming_camera is not None:
+            self.cameras[self.streaming_camera].stop_preview()
 
     def _validate_streaming_camera(
         self, streaming_camera: Optional[str]
@@ -208,8 +219,15 @@ class CameraManager:
         for camera_pipeline in self.cameras.values():
             camera_pipeline.set_dir(directory)
 
-        for camera_pipeline in self.cameras.values():
-            camera_pipeline.run()
+        # The recording pipeline opens the same camera as the preview
+        self._stop_preview()
+        if not all(camera_pipeline.run() for camera_pipeline in self.cameras.values()):
+            for camera_pipeline in self.cameras.values():
+                camera_pipeline.stop()
+            self.is_recording = False
+            self.recording_start_time = None
+            self._start_preview()
+            return {"status": "failed to start recording"}
 
         while not all(
             camera_pipeline.is_playing() for camera_pipeline in self.cameras.values()
@@ -239,6 +257,7 @@ class CameraManager:
 
         self.is_recording = False
         self.recording_start_time = None
+        self._start_preview()
         return {"status": "recording stopped"}
 
     def get_state(self) -> Dict[str, Any]:
