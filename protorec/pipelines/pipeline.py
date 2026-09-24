@@ -6,6 +6,7 @@ setup and control for video recording from different camera types.
 
 import logging
 import os
+import time
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,11 @@ from . import Gst
 from .pipeline_abc import BasePipeline
 
 logger = logging.getLogger(__name__)
+
+# A camera can stay hidden from device enumeration for a moment after another
+# pipeline, or pylonsrc's own startup probe, closes it
+START_ATTEMPTS = 10
+START_RETRY_DELAY_S = 0.5
 
 
 class CameraPipeline(BasePipeline):
@@ -270,16 +276,21 @@ class CameraPipeline(BasePipeline):
         appsink.connect("new-sample", self.callback)
         return appsink
 
-    def run(self) -> None:
-        """Run the pipeline and set the sink location."""
+    def run(self) -> bool:
+        """Run the pipeline and set the sink location.
+
+        Returns
+        -------
+        bool
+            True if the pipeline started, False if it failed after retries
+        """
         if self.sink is None:
             raise RuntimeError("Pipeline sink not initialized")
 
         self.sink.set_property(
             "location", os.path.join(self.dir, self.config["name"] + self.format)
         )
-        self.pipeline.set_state(Gst.State.READY)
-        self.pipeline.set_state(Gst.State.PLAYING)
+        return self._play(self.pipeline)
 
     def stop(self) -> None:
         """Stop the pipeline and set state to NULL."""
@@ -289,14 +300,43 @@ class CameraPipeline(BasePipeline):
 
     def start_preview(self) -> None:
         """Start streaming frames to the appsink without recording."""
-        ret = self.preview_pipeline.set_state(Gst.State.PLAYING)
-        if ret == Gst.StateChangeReturn.FAILURE:
-            logger.warning(
-                "Could not start preview for %s: %s",
-                self.config["name"],
-                self._pop_error(self.preview_pipeline),
+        self._play(self.preview_pipeline)
+
+    @classmethod
+    def _play(cls, pipeline: Gst.Pipeline) -> bool:
+        """Set the pipeline to PLAYING, retrying while the camera is unavailable.
+
+        Parameters
+        ----------
+        pipeline : Gst.Pipeline
+            Pipeline to start
+
+        Returns
+        -------
+        bool
+            True if the pipeline started, False if every attempt failed
+        """
+        name = pipeline.get_name()
+        for attempt in range(1, START_ATTEMPTS + 1):
+            if pipeline.set_state(Gst.State.PLAYING) != Gst.StateChangeReturn.FAILURE:
+                if attempt > 1:
+                    logger.info("Started %s on attempt %d", name, attempt)
+                return True
+
+            error = cls._pop_error(pipeline)
+            pipeline.set_state(Gst.State.NULL)
+            logger.info(
+                "Could not start %s (attempt %d/%d): %s",
+                name,
+                attempt,
+                START_ATTEMPTS,
+                error,
             )
-            self.preview_pipeline.set_state(Gst.State.NULL)
+            if attempt < START_ATTEMPTS:
+                time.sleep(START_RETRY_DELAY_S)
+
+        logger.warning("Gave up starting %s after %d attempts", name, START_ATTEMPTS)
+        return False
 
     @staticmethod
     def _pop_error(pipeline: Gst.Pipeline) -> str:

@@ -221,8 +221,13 @@ class CameraManager:
 
         # The recording pipeline opens the same camera as the preview
         self._stop_preview()
-        for camera_pipeline in self.cameras.values():
-            camera_pipeline.run()
+        if not all(camera_pipeline.run() for camera_pipeline in self.cameras.values()):
+            for camera_pipeline in self.cameras.values():
+                camera_pipeline.stop()
+            self.is_recording = False
+            self.recording_start_time = None
+            self._start_preview()
+            return {"status": "failed to start recording"}
 
         while not all(
             camera_pipeline.is_playing() for camera_pipeline in self.cameras.values()

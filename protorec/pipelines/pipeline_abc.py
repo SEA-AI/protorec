@@ -15,8 +15,8 @@ class BasePipeline(abc.ABC):
         """Construct the GStreamer pipeline."""
 
     @abc.abstractmethod
-    def run(self) -> None:
-        """Run the pipeline."""
+    def run(self) -> bool:
+        """Run the pipeline and report whether it started."""
 
     @abc.abstractmethod
     def stop(self) -> None:
